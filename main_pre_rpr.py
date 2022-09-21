@@ -16,6 +16,7 @@ import torchvision.transforms as transforms
 import torchvision.models as models
 from os.path import join
 from datasets.PairedImagesDataset import PairedImagesDataset
+import os
 
 
 def adjust_learning_rate(optimizer, init_lr, epoch, args):
@@ -33,28 +34,26 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='Self supervised pre-training for RPRs')
-parser.add_argument('data_path',
-                    help='path to dataset')
-parser.add_argument('pairs_file',
-                    help='file with pairs')
-parser.add_argument('config_file',
-                    help='path to dataset')
-parser.add_argument('-a', '--arch', default='resnet50',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
+parser.add_argument('--dataset_path',  help='path to dataset', default='/nfstemp/Datasets/7Scenes/')
+parser.add_argument('--pairs_file', help='file with pairs', default='7scenes_training_pairs.csv')
+parser.add_argument('--config_file', help='config file', default='pre_rpr_config.json')
+parser.add_argument('--lr', help='learning rate', type=float, default=0.005)
+parser.add_argument('--batch_size', help='batch size', type=int, default=24)
+parser.add_argument('--start_epoch', help='start epoch', type=int, default=0)
+parser.add_argument('--epochs', help='epochs', type=int, default=512)
+parser.add_argument('--gpu_id', help='gpu id', default='3')
+parser.add_argument('--arch', default='resnet50', choices=model_names, help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet50)')
 
 if __name__ == '__main__':
-
     args = parser.parse_args()
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
     utils.init_logger()
+    utils.set_proxy()
 
     # Record execution details
-    logging.info("Start {} experiment for RPR".format(args.mode))
+    logging.info("Start {} experiment for RPR".format(args.arch))
     logging.info("Using dataset: {}".format(args.dataset_path))
-    logging.info("Using labels file: {}".format(args.labels_file))
+    #logging.info("Using labels file: {}".format(args.labels_file))
 
     # Read configuration
     with open(args.config_file, "r") as read_file:
@@ -98,10 +97,10 @@ if __name__ == '__main__':
                                 weight_decay=config.get("weight_decay"))
 
     train_dataset = PairedImagesDataset(
-        args.data_path, args.pairs_file,
+        args.dataset_path, args.pairs_file,
         transform=utils.PairedTransform(transforms.Compose(utils.pre_augmentation)))
 
-    loader_params = {'batch_size': config.get('batch_size'),
+    loader_params = {'batch_size': args.batch_size,
                      'shuffle': True,
                      'num_workers': config.get('n_workers'),
                      'drop_last':True}
@@ -137,8 +136,8 @@ if __name__ == '__main__':
 
             batch_size = x1.shape[0]
             # compute output and loss
-            p1, p2, z1, z2 = model(x1, y1, x2, y2)
-            loss = -(criterion(p1, z2).mean() + criterion(p2, z1).mean()) * 0.5
+            p1, z2 = model(x1, y1, x2, y2)
+            loss = -(criterion(p1, z2).mean())
 
             losses.update(loss.item(), batch_size)
 

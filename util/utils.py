@@ -11,7 +11,15 @@ import numpy as np
 import torch.nn.functional as F
 from torchvision import transforms
 from PIL import ImageFilter
+import ssl
+import os
 
+def set_proxy():
+    ssl._create_default_https_context = ssl._create_unverified_context
+    os.environ["http_proxy"] = "http://127.0.0.1:3128"
+    os.environ["https_proxy"] = "http://127.0.0.1:3128"
+    os.environ["ftp_proxy"] = "http://127.0.0.1:3128"
+    os.environ["socks_proxy"] = "http://127.0.0.1:3128"
 
 # Logging and output utils
 ##########################
@@ -89,7 +97,7 @@ class PairedTransform:
         x2 = self.base_transform(x)
         y1 = self.base_transform(y)
         y2 = self.base_transform(y)
-        return [x1, x2], [y1, y2]
+        return x1, x2, y1, y2
 
 
 class GaussianBlur(object):

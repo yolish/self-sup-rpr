@@ -21,7 +21,7 @@ class PairedSimSiam(nn.Module):
         # Same as SimSiam
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(num_classes=dim, zero_init_residual=True)
+        self.encoder = base_encoder(num_classes=dim, zero_init_residual=True, pretrained=True)
 
         # build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
@@ -35,11 +35,16 @@ class PairedSimSiam(nn.Module):
                                         nn.BatchNorm1d(dim, affine=False)) # output layer
         self.encoder.fc[6].bias.requires_grad = False # hack: not use bias as it is followed by BN
 
+        self.concat_feat = nn.Sequential(nn.Linear(dim * 2, prev_dim, bias=False),
+                                       nn.BatchNorm1d(prev_dim),
+                                       nn.ReLU(inplace=True),  # hidden layer
+                                       nn.Linear(prev_dim, dim))  # output layer
+
         # build a 2-layer predictor for paired data
-        self.predictor = nn.Sequential(nn.Linear(dim * 2 , pred_dim, bias=False),
-                                        nn.BatchNorm1d(pred_dim),
+        self.predictor = nn.Sequential(nn.Linear(dim, prev_dim, bias=False),
+                                        nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True), # hidden layer
-                                        nn.Linear(pred_dim, dim)) # output layer
+                                        nn.Linear(prev_dim, dim)) # output layer
         self.out_dim = dim
 
     def forward(self, x1, y1 , x2, y2):
@@ -60,7 +65,10 @@ class PairedSimSiam(nn.Module):
         z2_y = self.encoder(y2)  # NxC
         z2 = torch.cat((z2_x, z2_y), dim=1)  # N x 2C
 
-        p1 = self.predictor(z1) # NxC'
-        p2 = self.predictor(z2) # NxC'
+        z1 = self.concat_feat(z1)
+        z2 = self.concat_feat(z2)
 
-        return p1, p2, z1.detach(), z2.detach()
+        p1 = self.predictor(z1) # NxC'
+        #p2 = self.predictor(z2) # NxC'
+
+        return p1, z2.detach()

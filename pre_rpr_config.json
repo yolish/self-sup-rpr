@@ -3,12 +3,11 @@
 		"n_freq_checkpoint": 10,
 		"n_workers": 4,
 		"device_id": "cuda:0",
-		"batch_size": 32,
 	     "lr": 0.005,
 		"weight_decay": 1e-4,
-	    "momntum": 0.9,
+	    "momentum": 0.9,
 		"eps": 1e-10,
-	    "dim": 2048,
+	    "dim": 1000,
 	    "predictor_dim": 512,
 	    "fix_pred_lr": false
 }
