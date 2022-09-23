@@ -13,6 +13,10 @@ from torchvision import transforms
 from PIL import ImageFilter
 import ssl
 import os
+import datetime
+from tensorboardX import SummaryWriter
+import sys
+from torchvision.utils import make_grid
 
 def set_proxy():
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -43,7 +47,7 @@ def create_output_dir(name):
     return out_dir
 
 
-def init_logger():
+def init_logger(save_dir):
     """
     Initialize the logger and create a time stamp for the file
     """
@@ -55,7 +59,7 @@ def init_logger():
         filename = ''.join([filename, "_", time.strftime("%d_%m_%y_%H_%M", time.localtime()), ".log"])
 
         # Creating logs' folder is needed
-        log_path = create_output_dir('out')
+        log_path = create_output_dir(save_dir)
 
         log_config_dict.get('handlers').get('file_handler')['filename'] = join(log_path, filename)
         logging.config.dictConfig(log_config_dict)
@@ -129,8 +133,7 @@ pre_augmentation = [
 
 # RPR Augmentations
 train_transforms = {
-    'baseline': transforms.Compose([transforms.ToPILImage(),
-                                    transforms.Resize(256),
+    'baseline': transforms.Compose([transforms.Resize(256),
                                     transforms.RandomCrop(224),
                                     transforms.ColorJitter(0.5, 0.5, 0.5, 0.2),
                                     transforms.ToTensor(),
@@ -138,8 +141,7 @@ train_transforms = {
 
 }
 test_transforms = {
-    'baseline': transforms.Compose([transforms.ToPILImage(),
-                                    transforms.Resize(256),
+    'baseline': transforms.Compose([transforms.Resize(256),
                                     transforms.CenterCrop(224),
                                     transforms.ToTensor(),
                                     normalize
@@ -170,7 +172,6 @@ class AverageMeter(object):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
 
-
 class ProgressMeter(object):
     def __init__(self, num_batches, meters, prefix=""):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
@@ -186,3 +187,32 @@ class ProgressMeter(object):
         num_digits = len(str(num_batches // 1))
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
+
+def init_log(args, saved_path='default', save_dir=None):
+    current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
+    if save_dir is None:
+        save_dir = os.path.join('out', "{}_{}".format(saved_path, current_time))
+    writer = SummaryWriter(os.path.join(save_dir, 'logs'))
+    # Saving run line
+    with open(os.path.join(save_dir, 'run_line.txt'), 'w') as f:
+        f.write("python {}".format(' '.join(sys.argv[:])))
+        print("python {}".format(' '.join(sys.argv[:])))
+    # Saving arguments to json
+    with open(os.path.join(save_dir, 'args.txt'), 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+        print("Saving arguments to: {}".format(os.path.join(save_dir, 'args.txt')))
+    return writer, save_dir
+
+def log_to_tensorboard(writer, progress, step):
+    with torch.no_grad():
+        writer.add_scalar(progress.meters[-1].name, progress.meters[-1].val, step)
+
+def log_img_to_tensorboard( writer, images, step):
+    with torch.no_grad():
+        batch_size = images["x1"].shape[0]
+        images_0_grid = make_grid(images["x1"][:min(5, batch_size)], nrow=min(5, batch_size), normalize=False)
+        images_1_grid = make_grid(images["x2"][:min(5, batch_size)], nrow=min(5, batch_size), normalize=False)
+        images_2_grid = make_grid(images["y1"][:min(5, batch_size)], nrow=min(5, batch_size), normalize=False)
+        images_3_grid = make_grid(images["y2"][:min(5, batch_size)], nrow=min(5, batch_size), normalize=False)
+        image_grid = torch.cat((images_0_grid, images_1_grid,images_2_grid, images_3_grid), 1)
+        writer.add_image('train/x1_x2_y1_y2', image_grid, step)

@@ -43,12 +43,15 @@ parser.add_argument('--start_epoch', help='start epoch', type=int, default=0)
 parser.add_argument('--epochs', help='epochs', type=int, default=512)
 parser.add_argument('--gpu_id', help='gpu id', default='3')
 parser.add_argument('--arch', default='resnet50', choices=model_names, help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet50)')
+parser.add_argument('--exp_name', default='default', type=str, help='experiment name for logging.')
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
-    utils.init_logger()
     utils.set_proxy()
+    writer, args.save_dir = utils.init_log(args, saved_path=args.exp_name)
+    utils.init_logger(args.save_dir)
 
     # Record execution details
     logging.info("Start {} experiment for RPR".format(args.arch))
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     n_freq_print = config.get("n_freq_print")
     n_freq_checkpoint = config.get("n_freq_checkpoint")
     n_epochs = config.get("n_epochs")
-    checkpoint_prefix = join(utils.create_output_dir('out'), utils.get_stamp_from_log())
+    checkpoint_prefix = join(args.save_dir, utils.get_stamp_from_log())
 
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, init_lr, epoch, args)
@@ -152,6 +155,9 @@ if __name__ == '__main__':
 
             if i % n_freq_print == 0:
                 progress.display(i)
+                utils.log_to_tensorboard(writer, progress, step=epoch * len(train_loader) + i)
+                if epoch == 0:
+                    utils.log_img_to_tensorboard(writer, sample, step=epoch * len(train_loader) + i)
 
 
         if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
