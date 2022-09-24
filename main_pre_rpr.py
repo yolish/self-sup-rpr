@@ -37,14 +37,22 @@ parser = argparse.ArgumentParser(description='Self supervised pre-training for R
 parser.add_argument('--dataset_path',  help='path to dataset', default='/nfstemp/Datasets/7Scenes/')
 parser.add_argument('--pairs_file', help='file with pairs', default='7scenes_training_pairs.csv')
 parser.add_argument('--config_file', help='config file', default='pre_rpr_config.json')
-parser.add_argument('--lr', help='learning rate', type=float, default=0.005)
+parser.add_argument('--lr', help='learning rate', type=float, default=0.05)
 parser.add_argument('--batch_size', help='batch size', type=int, default=24)
+parser.add_argument('--momentum', default=0.9, type=float,help='momentum of SGD solver')
+parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)', dest='weight_decay')
+parser.add_argument('--n_freq_print', default=10, type=int, help='print frequency (default: 10)')
+parser.add_argument('--n_freq_checkpoint', default=10, type=int, help='checkpoint frequency (default: 10)')
+parser.add_argument('--n_workers', default=4, type=int, help='number of data loading workers (default: 32)')
 parser.add_argument('--start_epoch', help='start epoch', type=int, default=0)
 parser.add_argument('--epochs', help='epochs', type=int, default=512)
 parser.add_argument('--gpu_id', help='gpu id', default='3')
 parser.add_argument('--arch', default='resnet50', choices=model_names, help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet50)')
 parser.add_argument('--exp_name', default='default', type=str, help='experiment name for logging.')
-
+# simsiam specific configs:
+parser.add_argument('--dim', default=2048, type=int, help='feature dimension (default: 2048)')
+parser.add_argument('--pred-dim', default=512, type=int, help='hidden dimension of the predictor (default: 512)')
+parser.add_argument('--fix-pred-lr', action='store_true', help='Fix learning rate for the predictor')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -59,10 +67,10 @@ if __name__ == '__main__':
     #logging.info("Using labels file: {}".format(args.labels_file))
 
     # Read configuration
-    with open(args.config_file, "r") as read_file:
-        config = json.load(read_file)
-    print("Running with configuration:\n{}".format(
-        '\n'.join(["\t{}: {}".format(k, v) for k, v in config.items()])))
+    #with open(args.config_file, "r") as read_file:
+    #    config = json.load(read_file)
+    #print("Running with configuration:\n{}".format(
+    #    '\n'.join(["\t{}: {}".format(k, v) for k, v in config.items()])))
 
     # Set the seeds and the device
     use_cuda = torch.cuda.is_available()
@@ -72,14 +80,14 @@ if __name__ == '__main__':
     if use_cuda:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        device_id = config.get('device_id')
+        device_id = 'cuda:0'
     device = torch.device(device_id)
 
     # Create model
     print("Creating model with a '{}' encoder".format(args.arch))
     model = PairedSimSiam(
         models.__dict__[args.arch],
-        config.get("dim"), config.get("pred_dim"))
+       args.dim, args.pred_dim)
     #TODO load the backbone weights
     model = model.to(device)
 
@@ -89,15 +97,15 @@ if __name__ == '__main__':
     # define loss function (criterion) and optimizer
     criterion = nn.CosineSimilarity(dim=1).to(device)
 
-    if config.get("fix_pred_lr"):
+    if args.fix_pred_lr:
         optim_params = [{'params': model.module.encoder.parameters(), 'fix_lr': False},
                         {'params': model.module.predictor.parameters(), 'fix_lr': True}]
     else:
         optim_params = model.parameters()
 
     optimizer = torch.optim.SGD(optim_params, init_lr,
-                                momentum=config.get("momentum"),
-                                weight_decay=config.get("weight_decay"))
+                                momentum=args.momentum,
+                                weight_decay=args.weight_decay)
 
     train_dataset = PairedImagesDataset(
         args.dataset_path, args.pairs_file,
@@ -105,13 +113,12 @@ if __name__ == '__main__':
 
     loader_params = {'batch_size': args.batch_size,
                      'shuffle': True,
-                     'num_workers': config.get('n_workers'),
+                     'num_workers': args.n_workers,
                      'drop_last':True}
     train_loader = torch.utils.data.DataLoader(train_dataset, **loader_params)
 
-    n_freq_print = config.get("n_freq_print")
-    n_freq_checkpoint = config.get("n_freq_checkpoint")
-    n_epochs = config.get("n_epochs")
+    n_freq_print = args.n_freq_print
+    n_freq_checkpoint = args.n_freq_checkpoint
     checkpoint_prefix = join(args.save_dir, utils.get_stamp_from_log())
 
     for epoch in range(args.start_epoch, args.epochs):
@@ -156,8 +163,8 @@ if __name__ == '__main__':
             if i % n_freq_print == 0:
                 progress.display(i)
                 utils.log_to_tensorboard(writer, progress, step=epoch * len(train_loader) + i)
-                if epoch == 0:
-                    utils.log_img_to_tensorboard(writer, sample, step=epoch * len(train_loader) + i)
+                #if epoch == 0:
+                #    utils.log_img_to_tensorboard(writer, sample, step=epoch * len(train_loader) + i)
 
 
         if (epoch % n_freq_checkpoint) == 0 and epoch > 0:

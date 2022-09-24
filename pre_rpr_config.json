@@ -3,7 +3,6 @@
 		"n_freq_checkpoint": 10,
 		"n_workers": 4,
 		"device_id": "cuda:0",
-	     "lr": 0.005,
 		"weight_decay": 1e-4,
 	    "momentum": 0.9,
 		"eps": 1e-10,
