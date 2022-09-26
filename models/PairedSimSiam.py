@@ -10,7 +10,7 @@ class PairedSimSiam(nn.Module):
     """
     Build a SimSiam model.
     """
-    def __init__(self, base_encoder, dim=2048, pred_dim=512):
+    def __init__(self, base_encoder, dim=2048, pred_dim=512, mode='train'):
         """
         dim: feature dimension (default: 2048)
         pred_dim: hidden dimension of the predictor (default: 512)
@@ -46,6 +46,7 @@ class PairedSimSiam(nn.Module):
                                         nn.ReLU(inplace=True), # hidden layer
                                         nn.Linear(prev_dim, dim)) # output layer
         self.out_dim = dim
+        self.mode = mode
 
     def forward(self, x1, y1 , x2, y2):
         """
@@ -55,20 +56,28 @@ class PairedSimSiam(nn.Module):
         Output:
             p1, p2, z1, z2: predictors and targets of the network
         """
+        if self.mode == 'train':
+            # compute features for one view for paired images
+            z1_x = self.encoder(x1) # NxC
+            z1_y = self.encoder(y1)  # NxC
+            z1 = torch.cat((z1_x, z1_y), dim=1) # N x 2C
 
-        # compute features for one view for paired images
-        z1_x = self.encoder(x1) # NxC
-        z1_y = self.encoder(y1)  # NxC
-        z1 = torch.cat((z1_x, z1_y), dim=1) # N x 2C
+            z2_x = self.encoder(x2)  # NxC
+            z2_y = self.encoder(y2)  # NxC
+            z2 = torch.cat((z2_x, z2_y), dim=1)  # N x 2C
 
-        z2_x = self.encoder(x2)  # NxC
-        z2_y = self.encoder(y2)  # NxC
-        z2 = torch.cat((z2_x, z2_y), dim=1)  # N x 2C
+            z1 = self.concat_feat(z1)
+            z2 = self.concat_feat(z2)
 
-        z1 = self.concat_feat(z1)
-        z2 = self.concat_feat(z2)
+            p1 = self.predictor(z1) # NxC'
+            #p2 = self.predictor(z2) # NxC'
+            return p1, z2.detach()
+        else:
+            #test mode
+            z1_x = self.encoder(x1)  # NxC
+            z1_y = self.encoder(y1)  # NxC
+            z1 = torch.cat((z1_x, z1_y), dim=1)  # N x 2C
+            z1 = self.concat_feat(z1)
+            return z1.detach()
 
-        p1 = self.predictor(z1) # NxC'
-        #p2 = self.predictor(z2) # NxC'
 
-        return p1, z2.detach()

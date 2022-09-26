@@ -87,8 +87,7 @@ if __name__ == '__main__':
     print("Creating model with a '{}' encoder".format(args.arch))
     model = PairedSimSiam(
         models.__dict__[args.arch],
-       args.dim, args.pred_dim)
-    #TODO load the backbone weights
+       args.dim, args.pred_dim, 'train')
     model = model.to(device)
 
     # infer learning rate before changing batch size
