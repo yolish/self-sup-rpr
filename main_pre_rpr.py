@@ -53,6 +53,7 @@ parser.add_argument('--exp_name', default='default', type=str, help='experiment 
 parser.add_argument('--dim', default=2048, type=int, help='feature dimension (default: 2048)')
 parser.add_argument('--pred-dim', default=512, type=int, help='hidden dimension of the predictor (default: 512)')
 parser.add_argument('--fix-pred-lr', action='store_true', help='Fix learning rate for the predictor')
+parser.add_argument('--weight_latest_loss', help='weight_latest_loss', type=float, default=0.01)
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -95,6 +96,7 @@ if __name__ == '__main__':
 
     # define loss function (criterion) and optimizer
     criterion = nn.CosineSimilarity(dim=1).to(device)
+    l1_loss = torch.nn.L1Loss().to(device)
 
     if args.fix_pred_lr:
         optim_params = [{'params': model.module.encoder.parameters(), 'fix_lr': False},
@@ -142,11 +144,18 @@ if __name__ == '__main__':
             y1 = sample["y1"].to(device)
             x2 = sample["x2"].to(device)
             y2 = sample["y2"].to(device)
+            x1_ = sample["x1_"].to(device)
+            y1_ = sample["y1_"].to(device)
+            x2_ = sample["x2_"].to(device)
+            y2_ = sample["y2_"].to(device)
 
             batch_size = x1.shape[0]
             # compute output and loss
             p1, z2 = model(x1, y1, x2, y2)
+            p1_, z2_ = model(x1_, y1_, x2_, y2_)
+            latent_loss = l1_loss(z2, z2_)
             loss = -(criterion(p1, z2).mean())
+            loss += latent_loss * args.weight_latest_loss
 
             losses.update(loss.item(), batch_size)
 
@@ -168,9 +177,3 @@ if __name__ == '__main__':
 
         if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
             torch.save(model.state_dict(), checkpoint_prefix + '_rpr_pretraining_checkpoint-{}.pth'.format(epoch))
-
-
-
-
-
-
