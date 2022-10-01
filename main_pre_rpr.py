@@ -151,11 +151,11 @@ if __name__ == '__main__':
 
             batch_size = x1.shape[0]
             # compute output and loss
-            p1, z2 = model(x1, y1, x2, y2)
-            p1_, z2_ = model(x1_, y1_, x2_, y2_)
-            latent_loss = l1_loss(z2, z2_)
-            loss = -(criterion(p1, z2).mean())
-            loss += latent_loss * args.weight_latest_loss
+            p1, z2, p1_, z2_ = model(x1, y1, x2, y2, x1_, y1_, x2_, y2_)
+            #p1_, z2_ = model(x1_, y1_, x2_, y2_)
+            #latent_loss = l1_loss(z2, z2_)
+            loss = -(criterion(p1, z2).mean() + criterion(p1_, z2_).mean())*0.5
+            #loss += latent_loss * args.weight_latest_loss
 
             losses.update(loss.item(), batch_size)
 

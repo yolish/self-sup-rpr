@@ -48,7 +48,7 @@ class PairedSimSiam(nn.Module):
         self.out_dim = dim
         self.mode = mode
 
-    def forward(self, x1, y1 , x2, y2):
+    def forward(self, x1, y1 , x2, y2, x1_=None, y1_=None, x2_=None, y2_=None):
         """
         Input:
             x1, y1: first views of pair of images
@@ -70,8 +70,23 @@ class PairedSimSiam(nn.Module):
             z2 = self.concat_feat(z2)
 
             p1 = self.predictor(z1) # NxC'
+
+            # compute features for one view for paired images
+            z1_x_ = self.encoder(x1_)  # NxC
+            z1_y_ = self.encoder(y1_)  # NxC
+            z1_ = torch.cat((z1_x_, z1_y_), dim=1)  # N x 2C
+
+            z2_x_ = self.encoder(x2_)  # NxC
+            z2_y_ = self.encoder(y2_)  # NxC
+            z2_ = torch.cat((z2_x_, z2_y_), dim=1)  # N x 2C
+
+            z1_ = self.concat_feat(z1_)
+            z2_ = self.concat_feat(z2_)
+
+            p1_ = self.predictor(z1_)  # NxC'
             #p2 = self.predictor(z2) # NxC'
-            return p1, z2.detach()
+
+            return p1, z2.detach(), p1_, z2_.detach()
         else:
             #test mode
             z1_x = self.encoder(x1)  # NxC
