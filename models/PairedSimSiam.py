@@ -94,5 +94,3 @@ class PairedSimSiam(nn.Module):
             z1 = torch.cat((z1_x, z1_y), dim=1)  # N x 2C
             z1 = self.concat_feat(z1)
             return z1.detach()
-
-
