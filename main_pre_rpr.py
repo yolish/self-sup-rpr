@@ -38,7 +38,7 @@ parser.add_argument('--dataset_path',  help='path to dataset', default='/nfstemp
 parser.add_argument('--pairs_file', help='file with pairs', default='7scenes_training_pairs.csv')
 parser.add_argument('--config_file', help='config file', default='pre_rpr_config.json')
 parser.add_argument('--lr', help='learning rate', type=float, default=0.05)
-parser.add_argument('--batch_size', help='batch size', type=int, default=24)
+parser.add_argument('--batch_size', help='batch size', type=int, default=12)
 parser.add_argument('--momentum', default=0.9, type=float,help='momentum of SGD solver')
 parser.add_argument('--weight_decay', default=1e-4, type=float, help='weight decay (default: 1e-4)', dest='weight_decay')
 parser.add_argument('--n_freq_print', default=10, type=int, help='print frequency (default: 10)')
