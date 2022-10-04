@@ -27,7 +27,7 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='Self supervised pre-training for RPRs Testing')
-parser.add_argument('--data', metavar='DIR', help='path to dataset', default='test_data/sanity1/')
+parser.add_argument('--data', metavar='DIR', help='path to dataset', default='test_data/sanity_clustered1/')
 parser.add_argument('--arch', metavar='ARCH', default='resnet50', choices=model_names, help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet50)')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers (default: 32)')
 parser.add_argument('--batch-size', default=1, type=int, help='mini-batch size ')
